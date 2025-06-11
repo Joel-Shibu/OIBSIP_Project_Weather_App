@@ -184,34 +184,48 @@ def display_forecast_gui(forecast_data, parent_frame):
             # Date with better formatting
             try:
                 date_obj = datetime.strptime(day['date'], '%Y-%m-%d')
-                day_name = date_obj.strftime('%a')
-                day_num = date_obj.strftime('%d')
-                month_name = date_obj.strftime('%b')
+                day_name = date_obj.strftime('%A')  # Full day name (e.g., Monday)
+                day_num = date_obj.strftime('%d').lstrip('0')  # Remove leading zero
+                month_name = date_obj.strftime('%B')  # Full month name
+                full_date = date_obj.strftime('%d %b %Y')  # e.g., "11 Jun 2023"
                 
                 # Create a frame for date with better styling
                 date_frame = Frame(day_frame, bg='#f0f2f5', bd=0)
-                date_frame.pack(fill=X, pady=(0, 8))
+                date_frame.pack(fill=X, pady=(0, 5))
                 
-                # Day name
+                # Full day name (e.g., "Monday")
                 Label(date_frame, 
                      text=day_name.upper(), 
-                     font=("Helvetica", 9, "bold"),
+                     font=("Helvetica", 8, "bold"),
                      bg='#f0f2f5',
                      fg=COLORS['primary'],
-                     justify='center').pack(fill=X)
+                     justify='center').pack(fill=X, pady=(0, 1))
                 
-                # Day number and month
-                date_str = f"{day_num} {month_name}"
+                # Day number (larger and bolder)
                 Label(date_frame, 
-                     text=date_str, 
-                     font=("Helvetica", 16, "bold"),
+                     text=day_num, 
+                     font=("Helvetica", 20, "bold"),
                      bg='#f0f2f5',
                      fg=COLORS['text_primary'],
                      justify='center').pack(fill=X)
                 
+                # Month and year (smaller, below day number)
+                Label(date_frame, 
+                     text=f"{month_name} {date_obj.strftime('%Y')}", 
+                     font=("Helvetica", 8),
+                     bg='#f0f2f5',
+                     fg=COLORS['text_secondary'],
+                     justify='center').pack(fill=X, pady=(0, 3))
+                
             except Exception as e:
                 print(f"Error formatting date: {e}")
                 date_str = day.get('date', 'N/A')
+                Label(day_frame, 
+                     text=date_str, 
+                     font=("Helvetica", 8),
+                     bg='#f8f9fa',
+                     fg=COLORS['error'],
+                     justify='center').pack(fill=X, pady=5)
             
             # Weather icon with better centering
             icon_frame = Frame(day_frame, bg='#f8f9fa')
@@ -529,14 +543,14 @@ header_frame.pack(fill=X, pady=(0, 20))
 
 # App title with weather icon
 title_frame = Frame(header_frame, bg=COLORS['background'])
-title_frame.pack(anchor='w')
+title_frame.pack(fill=X)  
 
 app_title = Label(title_frame, 
                  text="Weather Forecast",
                  font=("Helvetica", 32, "bold"),
                  bg=COLORS['background'],
                  fg=COLORS['primary_dark'])
-app_title.pack(side=LEFT)
+app_title.pack(expand=True)  
 
 # Add a subtle line under the title
 title_underline = Frame(header_frame, 
