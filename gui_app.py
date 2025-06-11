@@ -21,21 +21,55 @@ ipgeo = None
 # Unit state (True for Celsius, False for Fahrenheit)
 use_celsius = True
 
-# Color scheme
-COLORS = {
-    'primary': '#1e88e5',      # Main blue
-    'primary_light': '#42a5f5',  # Lighter blue
-    'primary_dark': '#1565c0',   # Darker blue
-    'background': '#e3f2fd',     # Very light blue background
-    'surface': '#ffffff',        # White surface
-    'text_primary': '#0d47a1',   # Dark blue text
-    'text_secondary': '#424242', # Dark gray text
-    'accent': '#0288d1',         # Accent blue
-    'border': '#bbdefb',         # Light blue border
-    'success': '#2e7d32',        # Green for success messages
-    'warning': '#f9a825',        # Yellow for warnings
-    'error': '#c62828'           # Red for errors
+# Theme state (True for light, False for dark)
+light_theme = True
+
+# Color schemes for light and dark themes
+THEMES = {
+    'light': {
+        'primary': '#1e88e5',      # Main blue
+        'primary_light': '#42a5f5',  # Lighter blue
+        'primary_dark': '#1565c0',   # Darker blue
+        'background': '#e3f2fd',     # Very light blue background
+        'surface': '#ffffff',        # White surface
+        'text_primary': '#0d47a1',   # Dark blue text
+        'text_secondary': '#424242', # Dark gray text
+        'accent': '#0288d1',         # Accent blue
+        'border': '#bbdefb',         # Light blue border
+        'success': '#2e7d32',        # Green for success messages
+        'warning': '#f9a825',        # Yellow for warnings
+        'error': '#c62828',          # Red for errors
+        'button_text': 'white',      # Text color for buttons
+        'toggle_bg': '#42a5f5',      # Toggle button background
+        'toggle_fg': 'white',        # Toggle button text color
+        'card_bg': '#ffffff',        # Card background
+        'card_fg': '#0d47a1',        # Card text color
+        'forecast_bg': '#f5f9ff',    # Forecast background
+    },
+    'dark': {
+        'primary': '#1976d2',      # Main blue
+        'primary_light': '#42a5f5',  # Lighter blue
+        'primary_dark': '#0d47a1',   # Darker blue
+        'background': '#121212',     # Very dark background
+        'surface': '#1e1e1e',        # Dark surface
+        'text_primary': '#e3f2fd',   # Light blue text
+        'text_secondary': '#b0bec5', # Light gray text
+        'accent': '#29b6f6',         # Brighter accent blue
+        'border': '#0d47a1',         # Dark blue border
+        'success': '#66bb6a',        # Light green
+        'warning': '#ffca28',        # Light yellow
+        'error': '#ef5350',          # Light red
+        'button_text': '#ffffff',    # White text for buttons
+        'toggle_bg': '#0d47a1',      # Darker blue for toggle
+        'toggle_fg': 'white',        # Toggle button text color
+        'card_bg': '#1e1e1e',        # Dark card background
+        'card_fg': '#e3f2fd',        # Light text for cards
+        'forecast_bg': '#1e1e1e',    # Dark forecast background
+    }
 }
+
+# Current theme colors
+COLORS = THEMES['light'].copy()
 
 def toggle_units():
     """Toggle between Celsius and Fahrenheit"""
@@ -53,6 +87,57 @@ def convert_temp(temp_c):
         return temp_c, "°C"
     else:
         return (temp_c * 9/5) + 32, "°F"
+
+def toggle_theme():
+    """Toggle between light and dark themes"""
+    global light_theme, COLORS
+    light_theme = not light_theme
+    theme = 'light' if light_theme else 'dark'
+    COLORS = THEMES[theme].copy()
+    
+    # Update theme toggle button
+    theme_btn.config(text="🌞" if light_theme else "🌙")
+    
+    # Update all UI elements
+    update_theme()
+    
+    # Refresh weather display to update colors
+    if city_entry.get().strip():
+        show_weather()
+
+def update_theme():
+    """Update all UI elements with current theme colors"""
+    # Update root window
+    root.configure(bg=COLORS['background'])
+    
+    # Update main container and frames
+    for frame in [main_frame, header_frame, title_frame, search_container, 
+                 city_frame, button_frame, weather_container]:
+        frame.config(bg=COLORS['background'])
+    
+    # Update title and labels
+    app_title.config(bg=COLORS['background'], fg=COLORS['primary_dark'])
+    title_underline.config(bg=COLORS['primary_light'])
+    city_label.config(bg=COLORS['background'], fg=COLORS['text_primary'])
+    
+    # Update entry field
+    city_entry.config(
+        bg=COLORS['surface'],
+        fg=COLORS['text_primary'],
+        insertbackground=COLORS['text_primary']
+    )
+    
+    # Update buttons
+    for btn in [search_btn, auto_detect_btn, unit_toggle_btn, theme_btn]:
+        btn.config(
+            bg=COLORS['primary_light'] if btn == unit_toggle_btn else COLORS['accent'] if btn == auto_detect_btn else COLORS['primary'],
+            fg=COLORS['button_text'],
+            activebackground=COLORS['primary_dark'],
+            activeforeground=COLORS['button_text']
+        )
+    
+    # Update theme button specifically
+    theme_btn.config(bg=COLORS['toggle_bg'])
 
 # Fetch weather data
 def get_weather(city):
@@ -77,7 +162,7 @@ def get_weather(city):
 def get_forecast(city):
     try:
         api_key = WEATHER_API_KEY
-        url = f"http://api.openweathermap.org/data/2.5/forecast?q={city}&units=metric&appid={api_key}"
+        url = f"http://api.openweathermap.org/data/2.5/forecast?q={city}&units=metric&appid={api_key}&cnt=40"  # Request 40 entries (5 days * 8 per day)
         response = requests.get(url)
         data = response.json()
 
@@ -87,36 +172,64 @@ def get_forecast(city):
 
         daily_forecast = []
         seen_dates = set()
+        
+        print(f"Raw forecast data for {city}:", data)  # Debug print
 
-        for entry in data["list"]:
-            dt_txt = entry["dt_txt"]  # format: "2025-06-11 12:00:00"
-            if "12:00:00" in dt_txt:
-                date_obj = datetime.strptime(dt_txt, "%Y-%m-%d %H:%M:%S")
-                date_label = date_obj.strftime("%a, %d %b")  # "Wed, 11 Jun"
-                if date_label not in seen_dates:
-                    seen_dates.add(date_label)
-                    daily_forecast.append({
-                        "date": date_label,
-                        "temp": entry["main"]["temp"],
-                        "icon": entry["weather"][0]["icon"],
-                        "weather": entry["weather"][0]["description"]
-                    })
+        for entry in data.get("list", []):
+            try:
+                # Parse the date from the entry
+                dt_txt = entry.get("dt_txt", "")
+                if not dt_txt:
+                    continue
+                    
+                # Parse the full datetime
+                dt = datetime.strptime(dt_txt, "%Y-%m-%d %H:%M:%S")
+                date_str = dt.strftime("%Y-%m-%d")  # Just the date part
+                
+                # Skip if we already have this date
+                if date_str in seen_dates:
+                    continue
+                    
+                # Add to seen dates and create forecast entry
+                seen_dates.add(date_str)
+                daily_forecast.append({
+                    "date": dt.strftime("%a, %d %b"),  # Format as "Wed, 11 Jun"
+                    "temp": entry.get("main", {}).get("temp", "N/A"),
+                    "icon": entry.get("weather", [{}])[0].get("icon", "02d"),
+                    "weather": entry.get("weather", [{}])[0].get("description", "N/A")
+                })
+                
+                print(f"Added forecast for {date_str}:", daily_forecast[-1])  # Debug print
+                
+                # Stop when we have 5 days
+                if len(daily_forecast) >= 5:
+                    break
+                    
+            except Exception as e:
+                print(f"Error processing forecast entry: {e}")
+                continue
 
-        print('Forecast API response:', data)
-        return daily_forecast[:5]
+        print('Processed forecast data:', daily_forecast)  # Debug print
+        return daily_forecast
 
     except Exception as e:
-        print(f"Error fetching forecast: {e}")
+        print(f"Error in get_forecast: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 # display forecast
 def display_forecast_gui(forecast_data, parent_frame):
     try:
-        print("Displaying forecast data:", forecast_data)
+        print("Displaying forecast data:", forecast_data)  # Debug print
         
         # Clear any existing widgets in parent frame
         for widget in parent_frame.winfo_children():
             widget.destroy()
+        
+        if not forecast_data or len(forecast_data) == 0:
+            print("No forecast data to display")
+            return
         
         # Main forecast container with subtle styling
         forecast_container = Frame(parent_frame, 
@@ -124,31 +237,31 @@ def display_forecast_gui(forecast_data, parent_frame):
                                 bd=0,
                                 relief=FLAT,
                                 padx=5,
-                                pady=5)
-        forecast_container.pack(fill=BOTH, expand=True, pady=(0, 10))
+                                pady=0)
+        forecast_container.pack(fill=BOTH, expand=True, pady=(0, 5))
         forecast_container.pack_propagate(False)
-        forecast_container.config(height=220)  # Fixed height for consistency
+        forecast_container.config(height=180)  # Reduced height from 220
         
         # Title with subtle underline
         title_frame = Frame(forecast_container, bg=COLORS['background'])
-        title_frame.pack(fill=X, pady=(0, 10), padx=5)
+        title_frame.pack(fill=X, pady=(0, 5))  # Reduced padding
         
         title_label = Label(title_frame, 
                           text="5-DAY FORECAST", 
-                          font=("Helvetica", 10, "bold"),
+                          font=("Helvetica", 9, "bold"),  # Smaller font
                           bg=COLORS['background'], 
                           fg=COLORS['primary_dark'],
-                          anchor='w')
-        title_label.pack(side=LEFT)
+                          anchor='center')
+        title_label.pack(fill=X)
         
         # Add subtle separator line under title
-        separator = Frame(title_frame, height=1, bg='#e0e0e0')
-        separator.pack(side=BOTTOM, fill=X, pady=(5, 0))
+        separator = Frame(title_frame, height=1, bg=COLORS['primary_light'])
+        separator.pack(side=BOTTOM, fill=X, pady=(3, 0))  # Reduced padding
         
         # Create a frame for the days with horizontal scrolling
         canvas_container = Frame(forecast_container, 
                               bg=COLORS['background'],
-                              height=180)
+                              height=150)  # Reduced height
         canvas_container.pack(fill=BOTH, expand=True)
         canvas_container.pack_propagate(False)
         
@@ -156,7 +269,7 @@ def display_forecast_gui(forecast_data, parent_frame):
         canvas = Canvas(canvas_container, 
                       bg=COLORS['background'],
                       highlightthickness=0,
-                      height=180)
+                      height=150)  # Reduced height
         
         # Add horizontal scrollbar (only show if needed)
         x_scrollbar = ttk.Scrollbar(canvas_container, 
@@ -167,148 +280,149 @@ def display_forecast_gui(forecast_data, parent_frame):
         
         # Pack the canvas and scrollbar
         canvas.pack(side=TOP, fill=BOTH, expand=True)
-        x_scrollbar.pack(side=BOTTOM, fill=X)
         
         # Create a frame inside the canvas to hold the days
         days_container = Frame(canvas, bg=COLORS['background'])
         
         # Calculate required width for all day frames
-        day_width = 110  # Reduced width for better fit
+        day_width = 100  # Reduced from 120
         padding = 5      # Reduced padding between frames
-        total_width = (day_width * 5) + (padding * 6)  # 5 days, 6 gaps
+        total_width = (day_width * 5) + (padding * 4)  # 5 days, 4 gaps
         
         # Create the window in the canvas for the days container
-        canvas.create_window((0, 0), window=days_container, anchor='nw', width=total_width, height=180)
+        canvas.create_window((0, 0), window=days_container, anchor='nw', width=total_width, height=150)
         
-        # Configure day frame style
+        # Configure day frame style - more compact
         day_style = {
-            'bg': '#f8f9fa',  # Light gray background for cards
-            'bd': 0,
-            'relief': 'flat',
-            'padx': 8,
-            'pady': 10,
+            'bg': COLORS['card_bg'],
+            'bd': 1,
+            'relief': 'groove',
+            'padx': 5,    # Reduced padding
+            'pady': 5,    # Reduced padding
             'width': day_width,
-            'height': 150  # Fixed height for day frames
+            'height': 130  # Reduced height
         }
 
-        # Create day frames
+        # Create day frames for each forecast day
         for i, day in enumerate(forecast_data[:5]):  # Only show 5 days
-            # Create day frame with subtle shadow effect
-            day_frame = Frame(days_container, **day_style)
-            day_frame.grid(row=0, column=i, padx=(0, padding) if i < 4 else 0, sticky='nsew', pady=5)
-            day_frame.grid_propagate(False)
-            
-            # Configure column weights for the days container
-            days_container.columnconfigure(i, weight=1)
-            
-            # Date with better formatting
             try:
-                date_obj = datetime.strptime(day['date'], '%Y-%m-%d')
-                day_name = date_obj.strftime('%A')  # Full day name (e.g., Monday)
-                day_num = date_obj.strftime('%d').lstrip('0')  # Remove leading zero
-                month_name = date_obj.strftime('%B')  # Full month name
-                full_date = date_obj.strftime('%d %b %Y')  # e.g., "11 Jun 2023"
+                # Create day frame with subtle shadow effect
+                day_frame = Frame(days_container, **day_style)
+                day_frame.grid(row=0, column=i, padx=(0, padding) if i < 4 else 0, sticky='nsew', pady=2)
+                day_frame.grid_propagate(False)
+                
+                # Configure column weights for the days container
+                days_container.columnconfigure(i, weight=1)
+                
+                # Date with better formatting
+                date_parts = day['date'].split(',')
+                day_name = date_parts[0].strip()  # e.g., "Wed"
+                day_num = date_parts[1].strip().split()[0]  # e.g., "11"
+                month_name = date_parts[1].strip().split()[1]  # e.g., "Jun"
                 
                 # Create a frame for date with better styling
-                date_frame = Frame(day_frame, bg='#f0f2f5', bd=0)
-                date_frame.pack(fill=X, pady=(0, 5))
+                date_frame = Frame(day_frame, bg=COLORS['card_bg'], bd=0)
+                date_frame.pack(fill=X, pady=(0, 2))  # Reduced padding
                 
-                # Full day name (e.g., "Monday")
+                # Day name (e.g., "WED")
                 Label(date_frame, 
                      text=day_name.upper(), 
-                     font=("Helvetica", 8, "bold"),
-                     bg='#f0f2f5',
+                     font=("Helvetica", 8, "bold"),  # Smaller font
+                     bg=COLORS['card_bg'],
                      fg=COLORS['primary'],
-                     justify='center').pack(fill=X, pady=(0, 1))
+                     justify='center').pack(fill=X)
                 
-                # Day number (larger and bolder)
+                # Day number (e.g., "11")
                 Label(date_frame, 
                      text=day_num, 
-                     font=("Helvetica", 20, "bold"),
-                     bg='#f0f2f5',
+                     font=("Helvetica", 16, "bold"),  # Smaller font
+                     bg=COLORS['card_bg'],
                      fg=COLORS['text_primary'],
                      justify='center').pack(fill=X)
                 
-                # Month and year (smaller, below day number)
+                # Month name (e.g., "JUN")
                 Label(date_frame, 
-                     text=f"{month_name} {date_obj.strftime('%Y')}", 
-                     font=("Helvetica", 8),
-                     bg='#f0f2f5',
+                     text=month_name.upper(), 
+                     font=("Helvetica", 8),  # Smaller font
+                     bg=COLORS['card_bg'],
                      fg=COLORS['text_secondary'],
-                     justify='center').pack(fill=X, pady=(0, 3))
+                     justify='center').pack(fill=X, pady=(0, 2))  # Reduced padding
                 
-            except Exception as e:
-                print(f"Error formatting date: {e}")
-                date_str = day.get('date', 'N/A')
-                Label(day_frame, 
-                     text=date_str, 
-                     font=("Helvetica", 8),
-                     bg='#f8f9fa',
-                     fg=COLORS['error'],
-                     justify='center').pack(fill=X, pady=5)
-            
-            # Weather icon with better centering
-            icon_frame = Frame(day_frame, bg='#f8f9fa')
-            icon_frame.pack(fill=X, pady=(5, 0))
-            
-            icon_code = day.get('icon', '')
-            icon_path = os.path.join("icons", f"{icon_code}.png")
-            
-            try:
-                if os.path.exists(icon_path):
-                    icon_image = Image.open(icon_path)
-                    icon_image = icon_image.resize((50, 50), Image.Resampling.LANCZOS)
-                    icon_photo = ImageTk.PhotoImage(icon_image)
-                    icon_label = Label(icon_frame, image=icon_photo, bg='#f8f9fa')
-                    icon_label.image = icon_photo
-                    icon_label.pack()
-                else:
-                    print(f"Icon not found: {icon_path}")
+                # Weather icon with better centering
+                icon_frame = Frame(day_frame, bg=COLORS['card_bg'])
+                icon_frame.pack(fill=X, pady=0)  # Removed vertical padding
+                
+                icon_code = day.get('icon', '')
+                icon_path = os.path.join("icons", f"{icon_code}.png")
+                
+                try:
+                    if os.path.exists(icon_path):
+                        icon_image = Image.open(icon_path)
+                        icon_image = icon_image.resize((40, 40), Image.Resampling.LANCZOS)  # Smaller icon
+                        icon_photo = ImageTk.PhotoImage(icon_image)
+                        icon_label = Label(icon_frame, image=icon_photo, bg=COLORS['card_bg'])
+                        icon_label.image = icon_photo  # Keep a reference
+                        icon_label.pack()
+                    else:
+                        # Fallback to text emoji
+                        Label(icon_frame, 
+                             text="☀️", 
+                             font=("Arial", 16),  # Smaller emoji
+                             bg=COLORS['card_bg']).pack()
+                except Exception as e:
+                    print(f"Error loading icon: {e}")
+                    # Fallback to text emoji
                     Label(icon_frame, 
                          text="☀️", 
-                         font=("Arial", 24), 
-                         bg='#f8f9fa').pack()
+                         font=("Arial", 16),  # Smaller emoji
+                         bg=COLORS['card_bg']).pack()
+                
+                # Temperature
+                temp_frame = Frame(day_frame, bg=COLORS['card_bg'])
+                temp_frame.pack(fill=X, pady=(0, 0))  # Removed vertical padding
+                
+                try:
+                    temp = day.get('temp', 0)
+                    if isinstance(temp, (int, float)):
+                        temp_str = f"{int(round(float(temp), 0))}°C"
+                    else:
+                        temp_str = f"{temp}°C"
+                    
+                    Label(temp_frame,
+                         text=temp_str,
+                         font=("Helvetica", 12, "bold"),  # Smaller font
+                         bg=COLORS['card_bg'],
+                         fg=COLORS['text_primary']).pack()
+                except Exception as e:
+                    print(f"Error displaying temperature: {e}")
+                
+                # Weather description
+                desc_frame = Frame(day_frame, bg=COLORS['card_bg'])
+                desc_frame.pack(fill=X, pady=(0, 0))  # Removed vertical padding
+                
+                try:
+                    desc = day.get('weather', '').title()
+                    Label(desc_frame,
+                         text=desc,
+                         font=("Helvetica", 7),  # Smaller font
+                         bg=COLORS['card_bg'],
+                         fg=COLORS['text_secondary'],
+                         wraplength=day_width-10,  # Reduced wraplength
+                         justify='center').pack()
+                except Exception as e:
+                    print(f"Error displaying weather description: {e}")
+                
             except Exception as e:
-                print(f"Error loading icon: {e}")
-                Label(icon_frame, 
-                     text="☀️", 
-                     font=("Arial", 24), 
-                     bg='#f8f9fa').pack()
-            
-            # Temperature with better styling
-            temp_frame = Frame(day_frame, bg='#f8f9fa')
-            temp_frame.pack(fill=X, pady=(5, 0))
-            
-            temp, temp_unit = convert_temp(day.get('temp', 0))
-            temp_str = f"{int(round(float(temp), 0))}{temp_unit}" if temp != 'N/A' else temp
-            
-            Label(temp_frame, 
-                 text=temp_str, 
-                 font=("Helvetica", 18, "bold"),
-                 bg='#f8f9fa',
-                 fg=COLORS['primary_dark']).pack()
-            
-            # Weather description with better wrapping
-            weather_frame = Frame(day_frame, bg='#f8f9fa')
-            weather_frame.pack(fill=X, pady=(5, 0))
-            
-            weather_desc = day.get('weather', 'N/A')
-            desc_label = Label(weather_frame, 
-                             text=str(weather_desc).title(), 
-                             font=("Helvetica", 8), 
-                             bg='#f8f9fa',
-                             fg=COLORS['text_secondary'],
-                             wraplength=day_width-16,  # Account for padding
-                             justify='center')
-            desc_label.pack(fill=X)
+                print(f"Error creating forecast day {i}: {e}")
+                continue
         
-        # Update the scroll region after all widgets are added
-        days_container.update_idletasks()
+        # Update the canvas scroll region
+        canvas.update_idletasks()
         canvas.config(scrollregion=canvas.bbox("all"))
         
-        # Only show scrollbar if needed
-        if total_width > canvas.winfo_width():
-            x_scrollbar.pack(side=BOTTOM, fill=X)
+        # Only show scrollbar if content is wider than canvas
+        if canvas.bbox("all")[2] > canvas.winfo_width():
+            x_scrollbar.pack(fill=X, pady=(0, 5))
         
     except Exception as e:
         print(f"Error in display_forecast_gui: {e}")
@@ -327,11 +441,17 @@ def show_weather():
             messagebox.showinfo("Info", "Please enter a city or use the Auto Detect button")
             return
 
+        # Get current weather data
         data = get_weather(city)
         if not data:
             messagebox.showerror("Error", "Could not retrieve weather data")
             return
 
+        # Get forecast data
+        forecast_data = get_forecast(city)
+        if not forecast_data:
+            print("Warning: Could not retrieve forecast data")
+        
         # Convert temperatures
         temp, temp_unit = convert_temp(data['main']['temp'])
         feels_like, _ = convert_temp(data['main']['feels_like'])
@@ -385,82 +505,74 @@ def show_weather():
                 icon_label = Label(top_row, 
                                  image=icon_photo, 
                                  bg=COLORS['surface'])
-                icon_label.image = icon_photo
+                icon_label.image = icon_photo  # Keep a reference
                 icon_label.pack(side=RIGHT, padx=10)
-                print(f"Successfully loaded icon: {icon_path}")
-            else:
-                print(f"Icon file not found: {icon_path}")
         except Exception as e:
-            print(f"Error loading icon: {e}")
+            print(f"Error loading weather icon: {e}")
         
         # Weather details
-        details_frame = Frame(current_weather_frame, bg=COLORS['surface'])
-        details_frame.pack(fill=X, pady=10)
-        
-        # Left side - Temperature and condition
-        temp_frame = Frame(details_frame, bg=COLORS['surface'])
-        temp_frame.pack(side=LEFT, fill=BOTH, expand=True)
-        
-        temp_value = Label(temp_frame, 
-                         text=f"{int(round(float(temp), 0))}{temp_unit}",
-                         font=("Helvetica", 42, "bold"),
+        weather_desc = data["weather"][0]["description"].title()
+        desc_label = Label(city_date_frame, 
+                         text=weather_desc, 
+                         font=("Helvetica", 14),
                          bg=COLORS['surface'],
-                         fg=COLORS['primary_dark'])
-        temp_value.pack(anchor='w')
+                         fg=COLORS['text_primary'])
+        desc_label.pack(anchor='w', pady=(0, 10))
         
-        condition = data["weather"][0]["description"].title()
-        condition_label = Label(temp_frame,
-                              text=condition,
-                              font=("Helvetica", 14),
-                              bg=COLORS['surface'],
-                              fg=COLORS['text_secondary'])
-        condition_label.pack(anchor='w', pady=(5, 0))
+        # Temperature display
+        temp_frame = Frame(city_date_frame, bg=COLORS['surface'])
+        temp_frame.pack(anchor='w')
         
-        # Right side - Additional details
-        details_right = Frame(details_frame, bg=COLORS['surface'])
-        details_right.pack(side=RIGHT, fill=Y)
+        temp_label = Label(temp_frame, 
+                         text=f"{temp}°{temp_unit}", 
+                         font=("Helvetica", 48, "bold"),
+                         bg=COLORS['surface'],
+                         fg=COLORS['primary'])
+        temp_label.pack(side=LEFT)
         
-        def add_detail(parent, label, value, unit=""):
-            frame = Frame(parent, bg=COLORS['surface'])
-            frame.pack(fill=X, pady=2)
-            Label(frame, text=f"{label}:", 
-                 font=("Helvetica", 10), 
-                 bg=COLORS['surface'],
-                 fg=COLORS['text_secondary']).pack(side=LEFT)
-            Label(frame, text=f" {value}{unit}", 
-                 font=("Helvetica", 10, "bold"),
-                 bg=COLORS['surface'],
-                 fg=COLORS['text_primary']).pack(side=RIGHT)
+        # Additional weather info
+        details_frame = Frame(city_date_frame, bg=COLORS['surface'])
+        details_frame.pack(fill=X, pady=(10, 0))
         
-        add_detail(details_right, "Feels Like", f"{int(round(float(feels_like), 0))}{temp_unit}")
-        add_detail(details_right, "Humidity", f"{data['main']['humidity']}%")
-        add_detail(details_right, "Wind", f"{data['wind']['speed']} m/s")
-        add_detail(details_right, "Pressure", f"{data['main']['pressure']} hPa")
+        # Feels like
+        feels_frame = Frame(details_frame, bg=COLORS['surface'])
+        feels_frame.pack(side=LEFT, padx=(0, 20))
+        Label(feels_frame, 
+             text="Feels like", 
+             font=("Helvetica", 10),
+             bg=COLORS['surface'],
+             fg=COLORS['text_secondary']).pack(anchor='w')
+        Label(feels_frame, 
+             text=f"{feels_like}°{temp_unit}", 
+             font=("Helvetica", 12, "bold"),
+             bg=COLORS['surface'],
+             fg=COLORS['text_primary']).pack(anchor='w')
         
-        # Add sunrise/sunset if available
-        if 'sunrise' in data['sys'] and 'sunset' in data['sys']:
-            sunrise = datetime.fromtimestamp(data['sys']['sunrise']).strftime('%H:%M')
-            sunset = datetime.fromtimestamp(data['sys']['sunset']).strftime('%H:%M')
-            
-            sun_frame = Frame(current_weather_frame, bg=COLORS['surface'], pady=10)
-            sun_frame.pack(fill=X, pady=(10, 0))
-            
-            Label(sun_frame, text=f"☀️ {sunrise}  •  🌙 {sunset}",
-                 font=("Helvetica", 12),
-                 bg=COLORS['surface'],
-                 fg=COLORS['text_secondary']).pack(anchor='center')
-
-        # Get and display forecast in a separate frame
-        forecast_frame = Frame(main_container, bg=COLORS['background'])
-        forecast_frame.pack(fill=BOTH, expand=True)
+        # Min/Max temp
+        minmax_frame = Frame(details_frame, bg=COLORS['surface'])
+        minmax_frame.pack(side=LEFT, padx=20)
+        Label(minmax_frame, 
+             text="Min/Max", 
+             font=("Helvetica", 10),
+             bg=COLORS['surface'],
+             fg=COLORS['text_secondary']).pack(anchor='w')
+        Label(minmax_frame, 
+             text=f"{temp_min}°{temp_unit} / {temp_max}°{temp_unit}", 
+             font=("Helvetica", 12, "bold"),
+             bg=COLORS['surface'],
+             fg=COLORS['text_primary']).pack(anchor='w')
         
-        forecast_data = get_forecast(city)
+        # Add forecast section if we have forecast data
         if forecast_data:
+            forecast_frame = Frame(main_container, bg=COLORS['background'])
+            forecast_frame.pack(fill=BOTH, expand=True)
             display_forecast_gui(forecast_data, forecast_frame)
-
+        
     except Exception as e:
-        messagebox.showerror("Error", f"Failed to retrieve weather data: {str(e)}")
         print(f"Error in show_weather: {e}")
+        import traceback
+        traceback.print_exc()
+        messagebox.showerror("Error", f"Failed to fetch weather data: {e}")
 
 def auto_detect_location():
     def detect_with_geocoder():
@@ -566,6 +678,21 @@ main_frame.pack(fill=BOTH, expand=True, padx=40, pady=30)
 # Header
 header_frame = Frame(main_frame, bg=COLORS['background'])
 header_frame.pack(fill=X, pady=(0, 20))
+
+# Theme toggle button
+theme_btn = Button(header_frame, 
+                 text="🌞",  # Sun emoji for light theme
+                 command=toggle_theme,
+                 bg=COLORS['toggle_bg'],
+                 fg=COLORS['toggle_fg'],
+                 activebackground=COLORS['primary_dark'],
+                 activeforeground='white',
+                 font=("Segoe UI Emoji", 14),
+                 padx=10,
+                 pady=2,
+                 bd=0,
+                 relief=FLAT)
+theme_btn.pack(side=RIGHT, padx=5)
 
 # App title with weather icon
 title_frame = Frame(header_frame, bg=COLORS['background'])
