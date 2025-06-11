@@ -9,16 +9,20 @@ import geocoder
 from tkinter import simpledialog
 
 
-# Load API key from .env
+# Load API keys from .env
 load_dotenv()
-API_KEY = os.getenv("WEATHER_API_KEY")
+WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+IPGEOLOCATION_API_KEY = os.getenv("IPGEOLOCATION_API_KEY")
+
+# Initialize IPGeolocation API
+ipgeo = None
 
 # Fetch weather data
 def get_weather(city):
     base_url = "https://api.openweathermap.org/data/2.5/weather"
     params = {
         "q": city,
-        "appid": API_KEY,
+        "appid": WEATHER_API_KEY,
         "units": "metric"
     }
 
@@ -91,6 +95,22 @@ def auto_detect_location():
         except Exception as e:
             return None, str(e)
         return None, "ipinfo service unavailable"
+        
+    def detect_with_ipgeolocation():
+        if not IPGEOLOCATION_API_KEY:
+            return None, "IPGeolocation API key not configured"
+        try:
+            response = requests.get(
+                'https://api.ipgeolocation.io/ipgeo',
+                params={'apiKey': IPGEOLOCATION_API_KEY},
+                timeout=3
+            )
+            data = response.json()
+            if 'city' in data and data['city']:
+                return data['city'], None
+            return None, data.get('message', 'Unknown error from IPGeolocation')
+        except Exception as e:
+            return None, str(e)
 
     # Show loading state
     auto_detect_btn.config(state=tk.DISABLED, text="Detecting...")
@@ -99,10 +119,14 @@ def auto_detect_location():
     try:
         # Try multiple detection methods
         detection_methods = [
+            ("IPGeolocation", detect_with_ipgeolocation) if IPGEOLOCATION_API_KEY else None,
             ("Geocoder", detect_with_geocoder),
             ("ipapi", detect_with_ipapi),
             ("ipinfo", detect_with_ipinfo)
         ]
+        
+        # Remove None values (in case IPGeolocation is not configured)
+        detection_methods = [m for m in detection_methods if m is not None]
         
         last_error = "No detection methods available"
         for service_name, method in detection_methods:
