@@ -18,6 +18,9 @@ IPGEOLOCATION_API_KEY = os.getenv("IPGEOLOCATION_API_KEY")
 # Initialize IPGeolocation API
 ipgeo = None
 
+# Unit state (True for Celsius, False for Fahrenheit)
+use_celsius = True
+
 # Color scheme
 COLORS = {
     'primary': '#1e88e5',      # Main blue
@@ -33,6 +36,23 @@ COLORS = {
     'warning': '#f9a825',        # Yellow for warnings
     'error': '#c62828'           # Red for errors
 }
+
+def toggle_units():
+    """Toggle between Celsius and Fahrenheit"""
+    global use_celsius
+    use_celsius = not use_celsius
+    # Update the toggle button text
+    unit_toggle_btn.config(text="🌡️ °F" if use_celsius else "🌡️ °C")
+    # Refresh the weather display if we have a city entered
+    if city_entry.get().strip():
+        show_weather()
+
+def convert_temp(temp_c):
+    """Convert temperature between Celsius and Fahrenheit"""
+    if use_celsius:
+        return temp_c, "°C"
+    else:
+        return (temp_c * 9/5) + 32, "°F"
 
 # Fetch weather data
 def get_weather(city):
@@ -259,8 +279,8 @@ def display_forecast_gui(forecast_data, parent_frame):
             temp_frame = Frame(day_frame, bg='#f8f9fa')
             temp_frame.pack(fill=X, pady=(5, 0))
             
-            temp = day.get('temp', 'N/A')
-            temp_str = f"{int(round(float(temp), 0))}°" if temp != 'N/A' else temp
+            temp, temp_unit = convert_temp(day.get('temp', 0))
+            temp_str = f"{int(round(float(temp), 0))}{temp_unit}" if temp != 'N/A' else temp
             
             Label(temp_frame, 
                  text=temp_str, 
@@ -311,6 +331,12 @@ def show_weather():
         if not data:
             messagebox.showerror("Error", "Could not retrieve weather data")
             return
+
+        # Convert temperatures
+        temp, temp_unit = convert_temp(data['main']['temp'])
+        feels_like, _ = convert_temp(data['main']['feels_like'])
+        temp_min, _ = convert_temp(data['main']['temp_min'])
+        temp_max, _ = convert_temp(data['main']['temp_max'])
 
         # Main container with padding
         main_container = Frame(weather_container, bg=COLORS['background'], padx=20, pady=20)
@@ -376,7 +402,7 @@ def show_weather():
         temp_frame.pack(side=LEFT, fill=BOTH, expand=True)
         
         temp_value = Label(temp_frame, 
-                         text=f"{data['main']['temp']}°C",
+                         text=f"{int(round(float(temp), 0))}{temp_unit}",
                          font=("Helvetica", 42, "bold"),
                          bg=COLORS['surface'],
                          fg=COLORS['primary_dark'])
@@ -406,7 +432,7 @@ def show_weather():
                  bg=COLORS['surface'],
                  fg=COLORS['text_primary']).pack(side=RIGHT)
         
-        add_detail(details_right, "Feels Like", f"{data['main']['feels_like']}°C")
+        add_detail(details_right, "Feels Like", f"{int(round(float(feels_like), 0))}{temp_unit}")
         add_detail(details_right, "Humidity", f"{data['main']['humidity']}%")
         add_detail(details_right, "Wind", f"{data['wind']['speed']} m/s")
         add_detail(details_right, "Pressure", f"{data['main']['pressure']} hPa")
@@ -517,7 +543,7 @@ def auto_detect_location():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to detect location: {str(e)}")
     finally:
-        auto_detect_btn.config(state=tk.NORMAL, text="Auto Detect")
+        auto_detect_btn.config(state=tk.NORMAL, text="📍 Auto Detect")
 
 # GUI Setup
 root = tk.Tk()
@@ -562,6 +588,20 @@ title_underline.pack(fill=X, pady=(10, 0))
 search_container = Frame(main_frame, bg=COLORS['background'])
 search_container.pack(fill=X, pady=(20, 15))
 
+# Unit toggle button
+unit_toggle_btn = Button(search_container, 
+                       text="🌡️ °F" if use_celsius else "🌡️ °C",  
+                       command=toggle_units,
+                       bg=COLORS['primary_light'], 
+                       fg='white',
+                       activebackground=COLORS['primary_dark'],
+                       activeforeground='white',
+                       font=("Segoe UI Emoji", 12, "bold"),
+                       width=5,  
+                       bd=0,
+                       relief=FLAT)
+unit_toggle_btn.pack(side=RIGHT, padx=(10, 0))
+
 # City input frame
 city_frame = Frame(search_container, name='city_frame', bg=COLORS['background'])
 city_frame.pack(side=LEFT, fill=X, expand=True)
@@ -587,13 +627,13 @@ button_frame = Frame(search_container, name='button_frame', bg=COLORS['backgroun
 button_frame.pack(side=LEFT, padx=(15, 0))
 
 search_btn = Button(button_frame, 
-                   text="Get Weather", 
+                   text="🌤️ Get Weather",  
                    command=show_weather,
                    bg=COLORS['primary'], 
                    fg='white', 
                    activebackground=COLORS['primary_dark'],
                    activeforeground='white',
-                   font=("Helvetica", 12, "bold"),
+                   font=("Segoe UI Emoji", 12, "bold"),
                    padx=20, 
                    pady=6, 
                    bd=0,
@@ -601,13 +641,13 @@ search_btn = Button(button_frame,
 search_btn.pack(side=LEFT, padx=(0, 10))
 
 auto_detect_btn = Button(button_frame, 
-                        text="Auto Detect", 
+                        text="📍 Auto Detect",  
                         command=auto_detect_location,
                         bg=COLORS['accent'], 
                         fg='white',
                         activebackground=COLORS['primary_dark'],
                         activeforeground='white',
-                        font=("Helvetica", 12, "bold"),
+                        font=("Segoe UI Emoji", 12, "bold"),
                         padx=20, 
                         pady=6, 
                         bd=0,
