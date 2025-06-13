@@ -1,6 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, Frame, Label, Button, Entry, PhotoImage, FLAT, GROOVE, RIDGE, SUNKEN, RAISED, SOLID
-from tkinter.constants import BOTH, X, LEFT, RIGHT, TOP, BOTTOM, N, S, E, W, NE, NW, SE, SW, CENTER, NORMAL, DISABLED
+from tkinter import *
+from tkinter import ttk, messagebox
+from tkinter.constants import *
 from PIL import Image, ImageTk
 import requests
 from io import BytesIO
@@ -9,66 +10,69 @@ from dotenv import load_dotenv
 import geocoder
 from datetime import datetime
 
-# Load environment variables
+# Load API keys from .env
 load_dotenv()
-
-# Configuration
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 IPGEOLOCATION_API_KEY = os.getenv("IPGEOLOCATION_API_KEY")
 
-# Global state
-use_celsius = True  # True for Celsius, False for Fahrenheit
-light_theme = True  # True for light theme, False for dark theme
+# Initialize IPGeolocation API
+ipgeo = None
 
-# Theme configurations
+# Unit state (True for Celsius, False for Fahrenheit)
+use_celsius = True
+
+# Theme state (True for light, False for dark)
+light_theme = True
+
+# Color schemes for light and dark themes
 THEMES = {
     'light': {
-        'primary': '#1e88e5',
-        'primary_light': '#42a5f5',
-        'primary_dark': '#1565c0',
-        'background': '#e3f2fd',
-        'surface': '#ffffff',
-        'text_primary': '#0d47a1',
-        'text_secondary': '#424242',
-        'accent': '#0288d1',
-        'border': '#bbdefb',
-        'success': '#2e7d32',
-        'warning': '#f9a825',
-        'error': '#c62828',
-        'button_text': 'white',
-        'toggle_bg': '#42a5f5',
-        'toggle_fg': 'white',
-        'card_bg': '#ffffff',
-        'card_fg': '#0d47a1',
-        'forecast_bg': '#f5f9ff',
+        'primary': '#1e88e5',      # Main blue
+        'primary_light': '#42a5f5',  # Lighter blue
+        'primary_dark': '#1565c0',   # Darker blue
+        'background': '#e3f2fd',     # Very light blue background
+        'surface': '#ffffff',        # White surface
+        'text_primary': '#0d47a1',   # Dark blue text
+        'text_secondary': '#424242', # Dark gray text
+        'accent': '#0288d1',         # Accent blue
+        'border': '#bbdefb',         # Light blue border
+        'success': '#2e7d32',        # Green for success messages
+        'warning': '#f9a825',        # Yellow for warnings
+        'error': '#c62828',          # Red for errors
+        'button_text': 'white',      # Text color for buttons
+        'toggle_bg': '#42a5f5',      # Toggle button background
+        'toggle_fg': 'white',        # Toggle button text color
+        'card_bg': '#ffffff',        # Card background
+        'card_fg': '#0d47a1',        # Card text color
+        'forecast_bg': '#f5f9ff',    # Forecast background
     },
     'dark': {
-        'primary': '#1976d2',
-        'primary_light': '#42a5f5',
-        'primary_dark': '#0d47a1',
-        'background': '#121212',
-        'surface': '#1e1e1e',
-        'text_primary': '#e3f2fd',
-        'text_secondary': '#b0bec5',
-        'accent': '#29b6f6',
-        'border': '#0d47a1',
-        'success': '#66bb6a',
-        'warning': '#ffca28',
-        'error': '#ef5350',
-        'button_text': '#ffffff',
-        'toggle_bg': '#0d47a1',
-        'toggle_fg': 'white',
-        'card_bg': '#1e1e1e',
-        'card_fg': '#e3f2fd',
-        'forecast_bg': '#1e1e1e',
+        'primary': '#1976d2',      # Main blue
+        'primary_light': '#42a5f5',  # Lighter blue
+        'primary_dark': '#0d47a1',   # Darker blue
+        'background': '#121212',     # Very dark background
+        'surface': '#1e1e1e',        # Dark surface
+        'text_primary': '#e3f2fd',   # Light blue text
+        'text_secondary': '#b0bec5', # Light gray text
+        'accent': '#29b6f6',         # Brighter accent blue
+        'border': '#0d47a1',         # Dark blue border
+        'success': '#66bb6a',        # Light green
+        'warning': '#ffca28',        # Light yellow
+        'error': '#ef5350',          # Light red
+        'button_text': '#ffffff',    # White text for buttons
+        'toggle_bg': '#0d47a1',      # Darker blue for toggle
+        'toggle_fg': 'white',        # Toggle button text color
+        'card_bg': '#1e1e1e',        # Dark card background
+        'card_fg': '#e3f2fd',        # Light text for cards
+        'forecast_bg': '#1e1e1e',    # Dark forecast background
     }
 }
 
-# Initialize current theme
+# Current theme colors
 COLORS = THEMES['light'].copy()
 
 def toggle_units():
-    """Toggle between Celsius and Fahrenheit units."""
+    """Toggle between Celsius and Fahrenheit"""
     global use_celsius
     use_celsius = not use_celsius
     unit_toggle_btn.config(text="🌡️ °F" if use_celsius else "🌡️ °C")
@@ -76,41 +80,52 @@ def toggle_units():
         show_weather()
 
 def convert_temp(temp_c):
-    """Convert temperature between Celsius and Fahrenheit."""
+    """Convert temperature between Celsius and Fahrenheit"""
     if use_celsius:
         return temp_c, "°C"
-    return (temp_c * 9/5) + 32, "°F"
+    else:
+        return (temp_c * 9/5) + 32, "°F"
 
 def toggle_theme():
-    """Toggle between light and dark themes."""
+    """Toggle between light and dark themes"""
     global light_theme, COLORS
     light_theme = not light_theme
     theme = 'light' if light_theme else 'dark'
     COLORS = THEMES[theme].copy()
+    
+
     theme_btn.config(text="🌞" if light_theme else "🌙")
+    
+    # Update all UI elements
     update_theme()
+    
+    # Refresh weather display to update colors
+    if city_entry.get().strip():
+        show_weather()
 
 def update_theme():
-    """Update all UI elements with current theme colors."""
+    """Update all UI elements with current theme colors"""
+    # Update root window
     root.configure(bg=COLORS['background'])
-    main_frame.configure(bg=COLORS['background'])
-    header_frame.configure(bg=COLORS['background'])
-    title_frame.configure(bg=COLORS['background'])
-    search_container.configure(bg=COLORS['background'])
-    city_frame.configure(bg=COLORS['background'])
-    button_frame.configure(bg=COLORS['background'])
-    weather_container.configure(bg=COLORS['background'])
     
+    # Update main container and frames
+    for frame in [main_frame, header_frame, title_frame, search_container, 
+                 city_frame, button_frame, weather_container]:
+        frame.config(bg=COLORS['background'])
+    
+    # Update title and labels
     app_title.config(bg=COLORS['background'], fg=COLORS['primary_dark'])
     title_underline.config(bg=COLORS['primary_light'])
     city_label.config(bg=COLORS['background'], fg=COLORS['text_primary'])
     
+    # Update entry field
     city_entry.config(
         bg=COLORS['surface'],
         fg=COLORS['text_primary'],
         insertbackground=COLORS['text_primary']
     )
     
+    # Update buttons
     for btn in [search_btn, auto_detect_btn, unit_toggle_btn, theme_btn]:
         btn.config(
             bg=COLORS['primary_light'] if btn == unit_toggle_btn else COLORS['accent'] if btn == auto_detect_btn else COLORS['primary'],
@@ -119,8 +134,10 @@ def update_theme():
             activeforeground=COLORS['button_text']
         )
     
+    # Update theme button specifically
     theme_btn.config(bg=COLORS['toggle_bg'])
 
+# Fetch weather data
 def get_weather(city):
     base_url = "https://api.openweathermap.org/data/2.5/weather"
     params = {
@@ -139,6 +156,7 @@ def get_weather(city):
         messagebox.showerror("Error", f"Error: {err}")
     return None
 
+# Fetch forecast data
 def get_forecast(city):
     try:
         api_key = WEATHER_API_KEY
@@ -153,6 +171,8 @@ def get_forecast(city):
         daily_forecast = []
         seen_dates = set()
         
+        print(f"Raw forecast data for {city}:", data)  # Debug print
+
         for entry in data.get("list", []):
             try:
                 # Parse the date from the entry
@@ -177,6 +197,8 @@ def get_forecast(city):
                     "weather": entry.get("weather", [{}])[0].get("description", "N/A")
                 })
                 
+                print(f"Added forecast for {date_str}:", daily_forecast[-1])  # Debug print
+                
                 # Stop when we have 5 days
                 if len(daily_forecast) >= 5:
                     break
@@ -185,6 +207,7 @@ def get_forecast(city):
                 print(f"Error processing forecast entry: {e}")
                 continue
 
+        print('Processed forecast data:', daily_forecast)  # Debug print
         return daily_forecast
 
     except Exception as e:
@@ -193,8 +216,11 @@ def get_forecast(city):
         traceback.print_exc()
         return None
 
+# display forecast
 def display_forecast_gui(forecast_data, parent_frame):
     try:
+        print("Displaying forecast data:", forecast_data)  # Debug print
+        
         # Clear any existing widgets in parent frame
         for widget in parent_frame.winfo_children():
             widget.destroy()
@@ -259,10 +285,16 @@ def display_forecast_gui(forecast_data, parent_frame):
         # Calculate required width for all day frames
         day_width = 100  # Reduced from 120
         padding = 5      # Reduced padding between frames
-        total_width = (day_width * 5) + (padding * 4)  # 5 days, 4 gaps
-        
+        try:
+            total_width = (day_width * 5) + (padding * 4)  # 5 days, 4 gaps
+            print(f"DEBUG: day_width={day_width}, padding={padding}, total_width={total_width} (type: {type(total_width)})")
+        except Exception as e:
+            print(f"DEBUG ERROR calculating total_width: {e}")
         # Create the window in the canvas for the days container
-        canvas.create_window((0, 0), window=days_container, anchor='nw', width=total_width, height=150)
+        try:
+            canvas.create_window((0, 0), window=days_container, anchor='nw', width=total_width, height=150)
+        except Exception as e:
+            print(f"DEBUG ERROR in create_window: {e}")
         
         # Configure day frame style - more compact
         day_style = {
@@ -401,6 +433,7 @@ def display_forecast_gui(forecast_data, parent_frame):
         import traceback
         traceback.print_exc()
 
+# Update UI
 def show_weather():
     try:
         # Clear previous weather display
