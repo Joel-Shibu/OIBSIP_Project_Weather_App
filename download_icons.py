@@ -15,7 +15,7 @@ os.makedirs(icon_folder, exist_ok=True)
 # Icon base URL
 base_url = "https://openweathermap.org/img/wn/{}@2x.png"
 
-print("🔽 Downloading weather icons...")
+print("Downloading weather icons...")
 
 for code in icon_codes:
     url = base_url.format(code)
@@ -26,8 +26,8 @@ for code in icon_codes:
         response.raise_for_status()  # Raise error for non-200
         with open(dest_path, "wb") as f:
             f.write(response.content)
-        print(f"✅ Downloaded: {code}")
+        print(f" Downloaded: {code}")
     except Exception as e:
-        print(f"❌ Failed to download {code}: {e}")
+        print(f" Failed to download {code}: {e}")
 
-print("\n✔️ All icons processed.")
+print("\n All icons processed.")
