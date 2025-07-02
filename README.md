@@ -2,6 +2,8 @@
 
 A weather application with both command-line and GUI interfaces. The GUI version includes additional features like 5-day weather forecast.
 
+![Weather App Screenshot](WeatherApp.png)
+
 ## Features
 
 ### Command Line Version
