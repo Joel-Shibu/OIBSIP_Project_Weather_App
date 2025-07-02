@@ -96,5 +96,3 @@ python gui_app.py
    OPENWEATHER_API_KEY=your_api_key_here
    ```
 
-## Note
-This project was created as part of an internship program.
